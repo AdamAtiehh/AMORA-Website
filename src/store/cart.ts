@@ -36,8 +36,8 @@ export const useCartStore = create<CartStore>()(
             return {
               items: state.items.map((item) =>
                 item.product.id === product.id &&
-                item.selectedSize === size &&
-                item.selectedColor.name === color.name
+                  item.selectedSize === size &&
+                  item.selectedColor.name === color.name
                   ? { ...item, quantity: item.quantity + 1 }
                   : item
               ),
@@ -75,8 +75,8 @@ export const useCartStore = create<CartStore>()(
         set((state) => ({
           items: state.items.map((item) =>
             item.product.id === productId &&
-            item.selectedSize === size &&
-            item.selectedColor.name === colorName
+              item.selectedSize === size &&
+              item.selectedColor.name === colorName
               ? { ...item, quantity }
               : item
           ),
@@ -121,7 +121,7 @@ export const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: 'luxe-cart',
+      name: 'AMORA-cart',
       partialize: (state) => ({ items: state.items }),
     }
   )

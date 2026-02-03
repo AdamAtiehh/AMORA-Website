@@ -1,4 +1,4 @@
-# Project Brief: Luxe Fashion (Frontend)
+# Project Brief: AMORA Fashion (Frontend)
 
 ## 1. Tech Stack Summary
 - **Framework**: React 18+ (Vite)

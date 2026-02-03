@@ -1,17 +1,24 @@
-'use client';
+
 
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ShoppingBag, Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCartStore } from '../store/cart'
-import { collections } from '../data/products'
+import { getCollections, type Collection } from '../services/catalog'
 import { cn } from '../lib/utils'
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [collections, setCollections] = useState<Collection[]>([])
   const { openCart, getTotalItems } = useCartStore()
   const totalItems = getTotalItems()
+
+  useEffect(() => {
+    getCollections().then(setCollections).catch(error => {
+      console.error('Failed to load collections for header:', error)
+    })
+  }, [])
 
   return (
     <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">

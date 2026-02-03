@@ -1,27 +1,32 @@
-'use client';
 
-import React from "react"
 
-import { useState } from 'react'
+import { X, Check, ChevronDown } from 'lucide-react'
+import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SlidersHorizontal, X, ChevronDown } from 'lucide-react'
 import { cn, formatPrice } from '../lib/utils'
-import type { FilterState } from '../types'
-import { getAllSizes, getAllColors, getPriceRange } from '../data/products'
+import type { AvailableFilters, ActiveFilters } from '../services/catalog'
 
 interface FilterPanelProps {
-  filters: FilterState
-  onFiltersChange: (filters: FilterState) => void
+  availableFilters: AvailableFilters
+  activeFilters: ActiveFilters
+  onFilterChange: (filters: ActiveFilters) => void
+  onClose: () => void
   productCount: number
 }
 
-export default function FilterPanel({ filters, onFiltersChange, productCount }: FilterPanelProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<string[]>(['price', 'size', 'color'])
-
-  const allSizes = getAllSizes()
-  const allColors = getAllColors()
-  const [minPrice, maxPrice] = getPriceRange()
+export default function FilterPanel({
+  availableFilters,
+  activeFilters,
+  onFilterChange,
+  onClose,
+  productCount,
+}: FilterPanelProps) {
+  const [expandedSections, setExpandedSections] = React.useState<string[]>(['price', 'size', 'color', 'availability'])
+  // Ensure we have a valid price range to display, defaulting to available
+  const currentPriceRange: [number, number] = [
+    activeFilters.priceMin ?? availableFilters.price.min,
+    activeFilters.priceMax ?? availableFilters.price.max,
+  ]
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) =>
@@ -29,282 +34,208 @@ export default function FilterPanel({ filters, onFiltersChange, productCount }: 
     )
   }
 
-  const updateFilter = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
-    onFiltersChange({ ...filters, [key]: value })
-  }
-
-  const toggleSize = (size: string) => {
-    const newSizes = filters.sizes.includes(size)
-      ? filters.sizes.filter((s) => s !== size)
-      : [...filters.sizes, size]
-    updateFilter('sizes', newSizes)
-  }
-
-  const toggleColor = (color: string) => {
-    const newColors = filters.colors.includes(color)
-      ? filters.colors.filter((c) => c !== color)
-      : [...filters.colors, color]
-    updateFilter('colors', newColors)
-  }
-
-  const clearFilters = () => {
-    onFiltersChange({
-      priceRange: [minPrice, maxPrice],
-      sizes: [],
-      colors: [],
-      inStock: false,
-      searchQuery: '',
+  const updatePrice = (min: number, max: number) => {
+    onFilterChange({
+      ...activeFilters,
+      priceMin: min,
+      priceMax: max,
     })
   }
 
-  const hasActiveFilters =
-    filters.sizes.length > 0 ||
-    filters.colors.length > 0 ||
-    filters.inStock ||
-    filters.priceRange[0] > minPrice ||
-    filters.priceRange[1] < maxPrice
+  const toggleSize = (size: string) => {
+    const current = activeFilters.sizes || []
+    const updated = current.includes(size)
+      ? current.filter(s => s !== size)
+      : [...current, size]
+    onFilterChange({ ...activeFilters, sizes: updated })
+  }
 
+  const toggleColor = (hex: string) => {
+    const current = activeFilters.colors || []
+    const updated = current.includes(hex)
+      ? current.filter(c => c !== hex)
+      : [...current, hex]
+    onFilterChange({ ...activeFilters, colors: updated })
+  }
+
+  const toggleStock = (checked: boolean) => {
+    onFilterChange({ ...activeFilters, inStockOnly: checked })
+  }
+
+  const clearFilters = () => {
+    onFilterChange({})
+  }
+
+
+
+  // Re-implementing simplified FilterSection inside file to avoid missing exports
   return (
-    <>
-      {/* Mobile Filter Button */}
-      <div className="lg:hidden mb-6 flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{productCount} products</p>
-        <motion.button
-          onClick={() => setIsOpen(true)}
-          whileTap={{ scale: 0.95 }}
-          className="flex items-center gap-2 px-4 py-2 border border-border text-sm hover:bg-secondary transition-colors"
+    <div className="h-full flex flex-col bg-background">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b border-border">
+        <div>
+          <h2 className="font-serif text-2xl">Filters</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {productCount} products found
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-secondary rounded-full transition-colors"
+          aria-label="Close filters"
         >
-          <SlidersHorizontal size={16} />
-          Filters
-          {hasActiveFilters && (
-            <span className="w-5 h-5 bg-accent text-accent-foreground text-xs rounded-full flex items-center justify-center">
-              {filters.sizes.length + filters.colors.length + (filters.inStock ? 1 : 0)}
-            </span>
-          )}
-        </motion.button>
+          <X size={20} />
+        </button>
       </div>
 
-      {/* Mobile Filter Drawer */}
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 lg:hidden"
-            />
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed left-0 top-0 h-full w-full max-w-sm bg-background shadow-2xl z-50 flex flex-col lg:hidden"
-            >
-              <div className="flex items-center justify-between p-6 border-b border-border">
-                <h2 className="font-serif text-xl tracking-wide">Filters</h2>
-                <button onClick={() => setIsOpen(false)} className="p-2 -mr-2">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6">
-                <FilterContent
-                  filters={filters}
-                  allSizes={allSizes}
-                  allColors={allColors}
-                  minPrice={minPrice}
-                  maxPrice={maxPrice}
-                  expandedSections={expandedSections}
-                  toggleSection={toggleSection}
-                  toggleSize={toggleSize}
-                  toggleColor={toggleColor}
-                  updateFilter={updateFilter}
-                />
-              </div>
-              <div className="p-6 border-t border-border space-y-3">
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="w-full py-3 border border-border text-sm hover:bg-secondary transition-colors"
-                  >
-                    Clear All Filters
-                  </button>
-                )}
+      {/* Filter Content */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+        {/* Price Range */}
+        <FilterSection
+          title="Price Range"
+          isExpanded={expandedSections.includes('price')}
+          onToggle={() => toggleSection('price')}
+        >
+          <div className="space-y-4 pt-2">
+            <div className="flex justify-between text-sm">
+              <span>{formatPrice(currentPriceRange[0])}</span>
+              <span>{formatPrice(currentPriceRange[1])}</span>
+            </div>
+            {/* Simple range inputs for demonstration */}
+            <div className="flex gap-4">
+              <input
+                type="number"
+                min={availableFilters.price.min}
+                max={availableFilters.price.max}
+                value={currentPriceRange[0]}
+                onChange={(e) => updatePrice(Number(e.target.value), currentPriceRange[1])}
+                className="w-full p-2 border border-border rounded"
+                placeholder="Min"
+              />
+              <input
+                type="number"
+                min={availableFilters.price.min}
+                max={availableFilters.price.max}
+                value={currentPriceRange[1]}
+                onChange={(e) => updatePrice(currentPriceRange[0], Number(e.target.value))}
+                className="w-full p-2 border border-border rounded"
+                placeholder="Max"
+              />
+            </div>
+          </div>
+        </FilterSection>
+
+        {/* Size */}
+        <FilterSection
+          title="Size"
+          isExpanded={expandedSections.includes('size')}
+          onToggle={() => toggleSection('size')}
+        >
+          <div className="grid grid-cols-3 gap-3 pt-2">
+            {availableFilters.sizes.map(size => {
+              const isActive = activeFilters.sizes?.includes(size)
+              return (
                 <button
-                  onClick={() => setIsOpen(false)}
-                  className="w-full py-3 bg-primary text-primary-foreground text-sm font-medium"
+                  key={size}
+                  onClick={() => toggleSize(size)}
+                  className={cn(
+                    'px-3 py-2 text-sm border transition-all duration-200',
+                    isActive
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'border-input hover:border-foreground/50'
+                  )}
                 >
-                  Show {productCount} Products
+                  {size}
                 </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Desktop Filter Sidebar */}
-      <div className="hidden lg:block w-64 flex-shrink-0">
-        <div className="sticky top-28">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-serif text-lg">Filters</h2>
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Clear all
-              </button>
-            )}
+              )
+            })}
           </div>
-          <FilterContent
-            filters={filters}
-            allSizes={allSizes}
-            allColors={allColors}
-            minPrice={minPrice}
-            maxPrice={maxPrice}
-            expandedSections={expandedSections}
-            toggleSection={toggleSection}
-            toggleSize={toggleSize}
-            toggleColor={toggleColor}
-            updateFilter={updateFilter}
-          />
+        </FilterSection>
+
+        {/* Color */}
+        <FilterSection
+          title="Color"
+          isExpanded={expandedSections.includes('color')}
+          onToggle={() => toggleSection('color')}
+        >
+          <div className="flex flex-wrap gap-3 pt-2">
+            {availableFilters.colors.map(color => {
+              const isActive = activeFilters.colors?.includes(color.value)
+              return (
+                <button
+                  key={color.value}
+                  onClick={() => toggleColor(color.value)}
+                  className={cn(
+                    'w-8 h-8 rounded-full border flex items-center justify-center transition-all',
+                    isActive ? 'ring-2 ring-primary ring-offset-2' : 'hover:scale-110'
+                  )}
+                  style={{ backgroundColor: color.value }}
+                  title={color.label}
+                  aria-label={`Select ${color.label}`}
+                >
+                  {isActive && (
+                    <Check
+                      size={12}
+                      className={cn(
+                        color.value.toLowerCase() === '#ffffff' || color.value.toLowerCase() === '#fafafa'
+                          ? 'text-black'
+                          : 'text-white'
+                      )}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </FilterSection>
+
+        {/* Availability */}
+        <FilterSection
+          title="Availability"
+          isExpanded={expandedSections.includes('availability')}
+          onToggle={() => toggleSection('availability')}
+        >
+          <div className="flex items-center space-x-3 pt-2">
+            <input
+              type="checkbox"
+              id="in-stock"
+              checked={!!activeFilters.inStockOnly}
+              onChange={(e) => toggleStock(e.target.checked)}
+              className="w-4 h-4 accent-foreground"
+            />
+            <label
+              htmlFor="in-stock"
+              className="text-sm font-medium leading-none cursor-pointer"
+            >
+              In stock only
+            </label>
+          </div>
+        </FilterSection>
+      </div>
+
+      {/* Footer */}
+      <div className="p-6 border-t border-border bg-background">
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={clearFilters}
+            className="px-4 py-3 text-sm font-medium border border-input opacity-70 hover:opacity-100 transition-opacity"
+          >
+            Clear All
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-3 text-sm font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors"
+          >
+            Show Results
+          </button>
         </div>
       </div>
-    </>
-  )
-}
-
-interface FilterContentProps {
-  filters: FilterState
-  allSizes: string[]
-  allColors: { name: string; hex: string }[]
-  minPrice: number
-  maxPrice: number
-  expandedSections: string[]
-  toggleSection: (section: string) => void
-  toggleSize: (size: string) => void
-  toggleColor: (color: string) => void
-  updateFilter: <K extends keyof FilterState>(key: K, value: FilterState[K]) => void
-}
-
-function FilterContent({
-  filters,
-  allSizes,
-  allColors,
-  minPrice,
-  maxPrice,
-  expandedSections,
-  toggleSection,
-  toggleSize,
-  toggleColor,
-  updateFilter,
-}: FilterContentProps) {
-  return (
-    <div className="space-y-6">
-      {/* Price Range */}
-      <FilterSection
-        title="Price"
-        isExpanded={expandedSections.includes('price')}
-        onToggle={() => toggleSection('price')}
-      >
-        <div className="space-y-4">
-          <div className="flex justify-between text-sm">
-            <span>{formatPrice(filters.priceRange[0])}</span>
-            <span>{formatPrice(filters.priceRange[1])}</span>
-          </div>
-          <div className="relative pt-2">
-            <input
-              type="range"
-              min={minPrice}
-              max={maxPrice}
-              value={filters.priceRange[0]}
-              onChange={(e) =>
-                updateFilter('priceRange', [Number(e.target.value), filters.priceRange[1]])
-              }
-              className="absolute w-full h-1 appearance-none bg-border rounded cursor-pointer accent-accent"
-            />
-            <input
-              type="range"
-              min={minPrice}
-              max={maxPrice}
-              value={filters.priceRange[1]}
-              onChange={(e) =>
-                updateFilter('priceRange', [filters.priceRange[0], Number(e.target.value)])
-              }
-              className="absolute w-full h-1 appearance-none bg-transparent rounded cursor-pointer accent-accent"
-            />
-          </div>
-        </div>
-      </FilterSection>
-
-      {/* Size */}
-      <FilterSection
-        title="Size"
-        isExpanded={expandedSections.includes('size')}
-        onToggle={() => toggleSection('size')}
-      >
-        <div className="flex flex-wrap gap-2">
-          {allSizes.map((size) => (
-            <button
-              key={size}
-              onClick={() => toggleSize(size)}
-              className={cn(
-                'px-3 py-1.5 text-sm border transition-colors',
-                filters.sizes.includes(size)
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border hover:border-foreground'
-              )}
-            >
-              {size}
-            </button>
-          ))}
-        </div>
-      </FilterSection>
-
-      {/* Color */}
-      <FilterSection
-        title="Color"
-        isExpanded={expandedSections.includes('color')}
-        onToggle={() => toggleSection('color')}
-      >
-        <div className="flex flex-wrap gap-3">
-          {allColors.map((color) => (
-            <button
-              key={color.name}
-              onClick={() => toggleColor(color.name)}
-              className={cn(
-                'w-7 h-7 rounded-full border-2 transition-transform hover:scale-110',
-                filters.colors.includes(color.name)
-                  ? 'border-accent ring-2 ring-accent ring-offset-2'
-                  : 'border-border'
-              )}
-              style={{ backgroundColor: color.hex }}
-              title={color.name}
-            />
-          ))}
-        </div>
-      </FilterSection>
-
-      {/* Availability */}
-      <FilterSection
-        title="Availability"
-        isExpanded={expandedSections.includes('availability')}
-        onToggle={() => toggleSection('availability')}
-      >
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={filters.inStock}
-            onChange={(e) => updateFilter('inStock', e.target.checked)}
-            className="w-4 h-4 accent-accent"
-          />
-          <span className="text-sm">In stock only</span>
-        </label>
-      </FilterSection>
     </div>
   )
 }
+
+
 
 interface FilterSectionProps {
   title: string
@@ -315,7 +246,7 @@ interface FilterSectionProps {
 
 function FilterSection({ title, isExpanded, onToggle, children }: FilterSectionProps) {
   return (
-    <div className="border-b border-border pb-6">
+    <div className="border-b border-border pb-6 last:border-0">
       <button
         onClick={onToggle}
         className="flex items-center justify-between w-full mb-4"

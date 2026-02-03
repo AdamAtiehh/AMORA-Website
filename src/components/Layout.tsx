@@ -15,7 +15,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-center md:text-left">
-              <h3 className="font-serif text-2xl tracking-wide mb-2">LUXE</h3>
+              <h3 className="font-serif text-2xl tracking-wide mb-2">AMORA</h3>
               <p className="text-sm text-muted-foreground">
                 Timeless elegance for the modern woman
               </p>
@@ -28,7 +28,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-border text-center text-xs text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} LUXE. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} AMORA. All rights reserved.</p>
           </div>
         </div>
       </footer>

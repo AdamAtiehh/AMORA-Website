@@ -1,9 +1,11 @@
-'use client';
+
 
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { collections } from '../data/products'
 import { ArrowRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { getHomeContent, type HomeContent } from '../services/content/content'
+import { getCollections, type Collection } from '../services/catalog'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -33,6 +35,32 @@ const itemVariants = {
 }
 
 export default function Home() {
+  const [content, setContent] = useState<HomeContent | null>(null)
+  const [collections, setCollections] = useState<Collection[]>([])
+
+  useEffect(() => {
+    Promise.all([
+      getHomeContent(),
+      getCollections()
+    ]).then(([homeContent, homeCollections]) => {
+      setContent(homeContent)
+      setCollections(homeCollections)
+    }).catch(error => {
+      console.error('Failed to load home data:', error)
+    })
+  }, [])
+
+  if (!content) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-4 w-32 bg-secondary mb-4 rounded"></div>
+          <div className="h-8 w-48 bg-secondary rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <motion.div
       variants={containerVariants}
@@ -49,8 +77,8 @@ export default function Home() {
           transition={{ duration: 1.5, ease: 'easeOut' }}
         >
           <img
-            src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1920&q=80"
-            alt="Fashion hero"
+            src={content.hero.image.src}
+            alt={content.hero.image.alt}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-foreground/30" />
@@ -61,26 +89,26 @@ export default function Home() {
             variants={itemVariants}
             className="text-sm tracking-[0.3em] uppercase mb-4"
           >
-            New Season
+            {content.hero.seasonLabel}
           </motion.p>
           <motion.h2
             variants={itemVariants}
             className="font-serif text-4xl md:text-6xl lg:text-7xl font-light mb-6 text-balance"
           >
-            Ramadan Elegance
+            {content.hero.headline}
           </motion.h2>
           <motion.p
             variants={itemVariants}
             className="text-lg md:text-xl max-w-xl mx-auto mb-8 text-primary-foreground/90"
           >
-            Discover our curated collections of refined pieces designed for the modern woman.
+            {content.hero.subheadline}
           </motion.p>
           <motion.div variants={itemVariants}>
             <Link
-              to="/collection/classic"
+              to={content.hero.ctaHref}
               className="inline-flex items-center gap-2 px-8 py-4 bg-primary-foreground text-foreground font-medium tracking-wide hover:bg-primary-foreground/90 transition-colors group"
             >
-              Explore Collections
+              {content.hero.ctaText}
               <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
             </Link>
           </motion.div>
@@ -118,22 +146,22 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
             >
-              <p className="text-sm tracking-[0.2em] uppercase text-muted-foreground mb-3">
-                Limited Edition
-              </p>
+              {content.featuredBanner.eyebrow && (
+                <p className="text-sm tracking-[0.2em] uppercase text-muted-foreground mb-3">
+                  {content.featuredBanner.eyebrow}
+                </p>
+              )}
               <h2 className="font-serif text-3xl md:text-4xl font-light mb-6">
-                Artisan Crafted Pieces
+                {content.featuredBanner.title}
               </h2>
               <p className="text-muted-foreground mb-8 leading-relaxed">
-                Our limited edition collection features hand-crafted pieces using traditional
-                techniques and the finest materials. Each piece is numbered and comes with a
-                certificate of authenticity.
+                {content.featuredBanner.body}
               </p>
               <Link
-                to="/collection/limited-edition"
+                to={content.featuredBanner.ctaHref}
                 className="inline-flex items-center gap-2 text-sm tracking-wide font-medium group"
               >
-                View Collection
+                {content.featuredBanner.ctaText}
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
               </Link>
             </motion.div>
@@ -145,8 +173,8 @@ export default function Home() {
               className="aspect-[4/5] overflow-hidden"
             >
               <img
-                src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=800&q=80"
-                alt="Limited edition collection"
+                src={content.featuredBanner.image.src}
+                alt={content.featuredBanner.image.alt}
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
               />
             </motion.div>
@@ -198,7 +226,7 @@ export default function Home() {
 }
 
 interface CollectionCardProps {
-  collection: typeof collections[0]
+  collection: Collection
   index: number
 }
 

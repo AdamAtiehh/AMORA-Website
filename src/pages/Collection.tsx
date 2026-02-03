@@ -1,11 +1,18 @@
-'use client';
 
-import { useState, useMemo } from 'react'
+
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Search, ArrowLeft } from 'lucide-react'
-import { getProductsByCollection, getCollectionBySlug, getPriceRange } from '../data/products'
-import type { FilterState } from '../types'
+import {
+  getProductsByCategorySlug,
+  getCollectionBySlug,
+  computeAvailableFilters,
+  applyFilters,
+  type Product,
+  type AvailableFilters,
+  type ActiveFilters
+} from '../services/catalog'
 import ProductCard from '../components/ProductCard'
 import FilterPanel from '../components/FilterPanel'
 
@@ -25,56 +32,79 @@ const containerVariants = {
 
 export default function Collection() {
   const { slug } = useParams<{ slug: string }>()
-  const collection = getCollectionBySlug(slug || '')
-  const allProducts = getProductsByCollection(slug || '')
-  const [minPrice, maxPrice] = getPriceRange()
+  const [products, setProducts] = useState<Product[]>([])
+  const [collectionInfo, setCollectionInfo] = useState<{ id: string, name: string, description: string, image: string } | null>(null)
 
-  const [filters, setFilters] = useState<FilterState>({
-    priceRange: [minPrice, maxPrice],
+  // Filter state
+  const [availableFilters, setAvailableFilters] = useState<AvailableFilters>({
+    price: { min: 0, max: 1000 },
     sizes: [],
     colors: [],
-    inStock: false,
-    searchQuery: '',
+    hasStock: false
   })
 
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Fetch initial data
+  useEffect(() => {
+    if (!slug) return
+
+    // Reset filters and search on slug change
+    setActiveFilters({})
+    setSearchQuery('')
+
+    const loadData = async () => {
+      try {
+        // Load collection info and products in parallel
+        const [collection, loadedProducts] = await Promise.all([
+          getCollectionBySlug(slug),
+          getProductsByCategorySlug(slug)
+        ])
+
+        if (collection) {
+          setCollectionInfo(collection)
+        } else {
+          setCollectionInfo(null)
+        }
+
+        setProducts(loadedProducts)
+        setAvailableFilters(computeAvailableFilters(loadedProducts))
+      } catch (error) {
+        console.error('Failed to load collection data:', error)
+        setCollectionInfo(null)
+        setProducts([])
+      }
+    }
+
+    loadData()
+  }, [slug])
+
+  // Derive filtered products
   const filteredProducts = useMemo(() => {
-    return allProducts.filter((product) => {
-      // Search query
-      if (
-        filters.searchQuery &&
-        !product.name.toLowerCase().includes(filters.searchQuery.toLowerCase())
-      ) {
-        return false
-      }
+    let result = applyFilters(products, activeFilters)
 
-      // Price range
-      if (product.price < filters.priceRange[0] || product.price > filters.priceRange[1]) {
-        return false
-      }
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase()
+      result = result.filter(p => p.name.toLowerCase().includes(lowerQuery))
+    }
 
-      // Sizes
-      if (filters.sizes.length > 0 && !filters.sizes.some((s) => product.sizes.includes(s))) {
-        return false
-      }
+    return result
+  }, [products, activeFilters, searchQuery])
 
-      // Colors
-      if (
-        filters.colors.length > 0 &&
-        !filters.colors.some((c) => product.colors.some((pc) => pc.name === c))
-      ) {
-        return false
-      }
+  if (!collectionInfo) {
+    if (slug && products.length === 0 && !collectionInfo) {
+      // Simple loading state if we have a slug but no data yet
+      return (
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <div className="animate-pulse flex flex-col items-center gap-2">
+            <div className="h-8 w-48 bg-secondary rounded"></div>
+            <div className="h-4 w-32 bg-secondary rounded"></div>
+          </div>
+        </div>
+      )
+    }
 
-      // In stock
-      if (filters.inStock && !product.inStock) {
-        return false
-      }
-
-      return true
-    })
-  }, [allProducts, filters])
-
-  if (!collection) {
     return (
       <motion.div
         variants={containerVariants}
@@ -109,8 +139,8 @@ export default function Collection() {
           transition={{ duration: 1.2, ease: 'easeOut' }}
         >
           <img
-            src={collection.image || "/placeholder.svg"}
-            alt={collection.name}
+            src={collectionInfo.image || "/placeholder.svg"}
+            alt={collectionInfo.name}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-foreground/40" />
@@ -131,7 +161,7 @@ export default function Collection() {
             transition={{ delay: 0.3 }}
             className="font-serif text-4xl md:text-5xl lg:text-6xl font-light mb-4"
           >
-            {collection.name}
+            {collectionInfo.name}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -139,7 +169,7 @@ export default function Collection() {
             transition={{ delay: 0.4 }}
             className="max-w-xl mx-auto text-primary-foreground/90"
           >
-            {collection.description}
+            {collectionInfo.description}
           </motion.p>
         </div>
       </section>
@@ -157,19 +187,23 @@ export default function Collection() {
 
       {/* Content */}
       <section className="container mx-auto px-6 pb-20">
-        <div className="flex gap-12">
+        <div className="flex flex-col lg:flex-row gap-12">
           {/* Filters */}
-          <FilterPanel
-            filters={filters}
-            onFiltersChange={setFilters}
-            productCount={filteredProducts.length}
-          />
+          <div className="w-full lg:w-64 flex-shrink-0">
+            <FilterPanel
+              availableFilters={availableFilters}
+              activeFilters={activeFilters}
+              onFilterChange={setActiveFilters}
+              onClose={() => { }}
+              productCount={filteredProducts.length}
+            />
+          </div>
 
           {/* Products */}
           <div className="flex-1">
-            {/* Search & Sort Bar */}
+            {/* Search Bar */}
             <div className="mb-8 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="relative flex-1 max-w-md">
+              <div className="relative flex-1 max-w-md w-full">
                 <Search
                   size={18}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -177,8 +211,8 @@ export default function Collection() {
                 <input
                   type="text"
                   placeholder="Search products..."
-                  value={filters.searchQuery}
-                  onChange={(e) => setFilters({ ...filters, searchQuery: e.target.value })}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
                 />
               </div>
